@@ -32,6 +32,10 @@ inputs:
   preview-link:
     description: Preview link to add to PR description (i.e. https://preview.example.com)
     required: false
+  fail-if-no-ticket:
+    description: Fail if no ticket is found in branch name
+    default: 'true'
+    required: false
 runs:
   using: node20
   main: dist/index.js

@@ -44,8 +44,8 @@ async function mockContext(options: {
     },
     hasPullRequestContext = true,
   } = options
-  const setFailedSpy = jest.fn()
-  const errorSpy = jest.fn()
+  const setFailedSpy = jest.fn().mockImplementation((message: string) => console.log(message))
+  const errorSpy = jest.fn().mockImplementation((message: string) => console.log(message))
   const prUpdateSpy = jest.fn(() => ({ status: updateStatus }))
 
   jest.doMock('@actions/core', () => ({
@@ -57,10 +57,12 @@ async function mockContext(options: {
       if (input === 'exception-regex') return exceptionRegex
       if (input === 'clean-title-regex') return cleanTitleRegex
       if (input === 'preview-link') return preview
+      if (input === 'fail-if-no-ticket') return 'true'
       return ''
     }),
     setFailed: setFailedSpy,
     error: errorSpy,
+    info: jest.fn().mockImplementation((...args: any[]) => console.info(...args)),
   }))
   jest.doMock('@actions/github', () => ({
     context: {
@@ -177,7 +179,7 @@ describe('#pull-request', () => {
               branch: `${ticket}-some-feature`,
               preview,
               updateStatus: HTTP_STATUS_SUCCESS,
-              prBody: '**[Preview](foo-bar.com)**\n**[Jira ticket](jira.com)**\n\nMore details',
+              prBody: '**[Preview](foo-bar.com)**\n**[A1C-1234](jira.com)**\n\nMore details',
             }
             ;({ setFailedSpy, errorSpy, prUpdateSpy } = await mockContext(options))
             await import('.')
@@ -191,10 +193,10 @@ describe('#pull-request', () => {
           it('updates PR title and current links in description', () => {
             expect(prUpdateSpy).toHaveBeenCalledWith({
               ...DEFAULT_REQUEST_OPTIONS,
-              title: `${ticket} - title`,
+              title: `${ticket}: title`,
               body:
                 `**[Preview](${preview})**\n` +
-                `**[Jira ticket](https://account.atlassian.net/browse/${ticket})**\n\nMore details`,
+                `**[${ticket}](https://account.atlassian.net/browse/${ticket})**\n\nMore details`,
             })
           })
         })
@@ -210,10 +212,10 @@ describe('#pull-request', () => {
                 branch: `${ticket}-some-feature`,
                 preview,
                 updateStatus: HTTP_STATUS_SUCCESS,
-                prTitle: `${ticket} - Some feature`,
+                prTitle: `${ticket}: Some feature`,
                 prBody:
                   `**[Preview](${preview})**\n` +
-                  `**[Jira ticket](https://account.atlassian.net/browse/${ticket})**\n\nMore details`,
+                  `**[${ticket}](https://account.atlassian.net/browse/${ticket})**\n\nMore details`,
               }
               ;({ setFailedSpy, errorSpy, prUpdateSpy } = await mockContext(options))
               await import('.')
@@ -254,10 +256,10 @@ describe('#pull-request', () => {
         it('updates PR title and description', () => {
           expect(prUpdateSpy).toHaveBeenCalledWith({
             ...DEFAULT_REQUEST_OPTIONS,
-            title: `${ticket} - title`,
+            title: `${ticket}: title`,
             body:
               `**[Preview](${preview})**\n` +
-              `**[Jira ticket](https://account.atlassian.net/browse/${ticket})**\n\nbody`,
+              `**[${ticket}](https://account.atlassian.net/browse/${ticket})**\n\nbody`,
           })
         })
       })
@@ -281,10 +283,10 @@ describe('#pull-request', () => {
       it('tries to update PR title and description', () => {
         expect(prUpdateSpy).toHaveBeenCalledWith({
           ...DEFAULT_REQUEST_OPTIONS,
-          title: `${ticket} - title`,
+          title: `${ticket}: title`,
           body:
             `**[Preview](${preview})**\n` +
-            `**[Jira ticket](https://account.atlassian.net/browse/${ticket})**\n\nbody`,
+            `**[${ticket}](https://account.atlassian.net/browse/${ticket})**\n\nbody`,
         })
       })
 
@@ -309,8 +311,8 @@ describe('#pull-request', () => {
               branch: `some-feature`,
               preview,
               updateStatus: HTTP_STATUS_SUCCESS,
-              prBody: '**[Preview](foo-bar.com)**\n**[Jira ticket](jira.com)**\n\nMore details',
-              prTitle: `${ticket} - some-feature`,
+              prBody: '**[Preview](foo-bar.com)**\n**[A1C-1234](jira.com)**\n\nMore details',
+              prTitle: `${ticket}: some-feature`,
             }
             ;({ setFailedSpy, errorSpy, prUpdateSpy } = await mockContext(options))
             await import('.')
@@ -326,7 +328,7 @@ describe('#pull-request', () => {
               ...DEFAULT_REQUEST_OPTIONS,
               body:
                 `**[Preview](${preview})**\n` +
-                `**[Jira ticket](https://account.atlassian.net/browse/${ticket})**\n\nMore details`,
+                `**[${ticket}](https://account.atlassian.net/browse/${ticket})**\n\nMore details`,
             })
           })
         })
@@ -342,10 +344,10 @@ describe('#pull-request', () => {
                 branch: `${ticket}-some-feature`,
                 preview,
                 updateStatus: HTTP_STATUS_SUCCESS,
-                prTitle: `${ticket} - Some feature`,
+                prTitle: `${ticket}: Some feature`,
                 prBody:
                   `**[Preview](${preview})**\n` +
-                  `**[Jira ticket](https://account.atlassian.net/browse/${ticket})**\n\nMore details`,
+                  `**[${ticket}](https://account.atlassian.net/browse/${ticket})**\n\nMore details`,
               }
               ;({ setFailedSpy, errorSpy, prUpdateSpy } = await mockContext(options))
               await import('.')
@@ -386,10 +388,10 @@ describe('#pull-request', () => {
         it('updates PR title and description', () => {
           expect(prUpdateSpy).toHaveBeenCalledWith({
             ...DEFAULT_REQUEST_OPTIONS,
-            title: `${ticket} - title`,
+            title: `${ticket}: title`,
             body:
               `**[Preview](${preview})**\n` +
-              `**[Jira ticket](https://account.atlassian.net/browse/${ticket})**\n\nbody`,
+              `**[${ticket}](https://account.atlassian.net/browse/${ticket})**\n\nbody`,
           })
         })
       })
@@ -413,10 +415,10 @@ describe('#pull-request', () => {
       it('tries to update PR title and description', () => {
         expect(prUpdateSpy).toHaveBeenCalledWith({
           ...DEFAULT_REQUEST_OPTIONS,
-          title: `${ticket} - title`,
+          title: `${ticket}: title`,
           body:
             `**[Preview](${preview})**\n` +
-            `**[Jira ticket](https://account.atlassian.net/browse/${ticket})**\n\nbody`,
+            `**[${ticket}](https://account.atlassian.net/browse/${ticket})**\n\nbody`,
         })
       })
 
@@ -441,7 +443,7 @@ describe('#pull-request', () => {
 
       it('sets failed status', () => {
         expect(setFailedSpy).toHaveBeenCalledWith(
-          expect.stringContaining('Neither current branch nor title start with a Jira ticket')
+          expect.stringContaining('Neither current branch nor title contain a Jira ticket matching')
         )
       })
 
@@ -499,7 +501,7 @@ describe('#pull-request', () => {
 
     it('cleans PR title', () => {
       expect(prUpdateSpy).toHaveBeenCalledWith(
-        expect.objectContaining({ title: `${ticket} - feature` })
+        expect.objectContaining({ title: `${ticket}: feature` })
       )
     })
   })
@@ -523,7 +525,7 @@ describe('#pull-request', () => {
 
     it('does not clean PR title', () => {
       expect(prUpdateSpy).toHaveBeenCalledWith(
-        expect.objectContaining({ title: `${ticket} - ${prTitle}` })
+        expect.objectContaining({ title: `${ticket}: ${prTitle}` })
       )
     })
   })
@@ -539,7 +541,7 @@ describe('#pull-request', () => {
           const options = {
             branch: `${ticket}-nice-feature`,
             preview,
-            prTitle: `${ticket} - Nice feature`,
+            prTitle: `${ticket}: Nice feature`,
           }
           ;({ setFailedSpy, errorSpy, prUpdateSpy } = await mockContext(options))
           await import('.')
@@ -553,7 +555,7 @@ describe('#pull-request', () => {
         it('updates PR description only', () => {
           expect(prUpdateSpy).toHaveBeenCalledWith({
             ...DEFAULT_REQUEST_OPTIONS,
-            body: `**[Jira ticket](https://account.atlassian.net/browse/${ticket})**\n\nbody`,
+            body: `**[${ticket}](https://account.atlassian.net/browse/${ticket})**\n\nbody`,
           })
         })
       })
@@ -578,8 +580,8 @@ describe('#pull-request', () => {
         it('updates PR description with Jira link only', () => {
           expect(prUpdateSpy).toHaveBeenCalledWith({
             ...DEFAULT_REQUEST_OPTIONS,
-            title: `${ticket} - title`,
-            body: `**[Jira ticket](https://account.atlassian.net/browse/${ticket})**\n\nbody`,
+            title: `${ticket}: title`,
+            body: `**[${ticket}](https://account.atlassian.net/browse/${ticket})**\n\nbody`,
           })
         })
       })
@@ -598,7 +600,7 @@ describe('#pull-request', () => {
 
       it('sets failed status', () => {
         expect(setFailedSpy).toHaveBeenCalledWith(
-          expect.stringContaining('Neither current branch nor title start with a Jira ticket')
+          expect.stringContaining('Neither current branch nor title contain a Jira ticket matching')
         )
       })
 
