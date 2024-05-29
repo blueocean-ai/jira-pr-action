@@ -44,8 +44,8 @@ async function mockContext(options: {
     },
     hasPullRequestContext = true,
   } = options
-  const setFailedSpy = jest.fn().mockImplementation((message: string) => console.log(message))
-  const errorSpy = jest.fn().mockImplementation((message: string) => console.log(message))
+  const setFailedSpy = jest.fn()
+  const errorSpy = jest.fn()
   const prUpdateSpy = jest.fn(() => ({ status: updateStatus }))
 
   jest.doMock('@actions/core', () => ({
@@ -62,7 +62,7 @@ async function mockContext(options: {
     }),
     setFailed: setFailedSpy,
     error: errorSpy,
-    info: jest.fn().mockImplementation((...args: any[]) => console.info(...args)),
+    info: jest.fn(),
   }))
   jest.doMock('@actions/github', () => ({
     context: {
