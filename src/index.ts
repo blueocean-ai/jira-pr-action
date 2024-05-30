@@ -10,9 +10,9 @@ const INPUT_EXCEPTION_REGEX_FLAGS = 'exception-regex-flags'
 const INPUT_CLEAN_TITLE_REGEX = 'clean-title-regex'
 const INPUT_CLEAN_TITLE_REGEX_FLAGS = 'clean-title-regex-flags'
 const INPUT_PREVIEW_LINK = 'preview-link'
+const INPUT_FAIL_IF_NO_TICKET = 'fail-if-no-ticket'
 
 const PREVIEW_LINK_TEXT = 'Preview'
-const JIRA_LINK_TEXT = 'Jira ticket'
 
 function cleanPullRequestTitle(title: string, cleanTitleRegex?: RegExp) {
   return cleanTitleRegex ? title.replace(cleanTitleRegex, '') : title
@@ -31,6 +31,7 @@ async function run(): Promise<void> {
     const cleanTitleRegexInput = core.getInput(INPUT_CLEAN_TITLE_REGEX)
     const cleanTitleRegexFlags = core.getInput(INPUT_CLEAN_TITLE_REGEX_FLAGS)
     const previewLink = core.getInput(INPUT_PREVIEW_LINK)
+    const failIfNoTicket = core.getInput(INPUT_FAIL_IF_NO_TICKET)
 
     const requiredInputs = {
       [INPUT_JIRA_ACCOUNT]: jiraAccount,
@@ -66,20 +67,38 @@ async function run(): Promise<void> {
 
     let ticketLine = ''
     const headBranch = context.payload.pull_request.head.ref
-    const [ticketInBranch] =
-      headBranch.match(ticketRegex) || context.payload.pull_request.title.match(ticketRegex) || []
+    const [ticketInBranch] = headBranch.match(ticketRegex) || []
+    const [ticketInTitle] = context.payload.pull_request.title.match(ticketRegex) || []
+    const jiraTicket = ticketInBranch || ticketInTitle
 
     if (ticketInBranch) {
-      const jiraLink = `https://${jiraAccount}.atlassian.net/browse/${ticketInBranch}`
-      ticketLine = `**[${JIRA_LINK_TEXT}](${jiraLink})**\n`
+      core.info(`Found ticket ${ticketInBranch} in branch name`)
+    }
+    if (ticketInTitle) {
+      core.info(`Found ticket ${ticketInTitle} in pull request title`)
+    }
 
-      if (!ticketRegex.test(prTitle)) request.title = `${ticketInBranch} - ${prTitle}`
+    if (jiraTicket) {
+      core.info(`Using ticket ${jiraTicket}`)
+      const jiraLink = `https://${jiraAccount}.atlassian.net/browse/${jiraTicket}`
+      ticketLine = `**[${jiraTicket}](${jiraLink})**\n`
+
+      if (ticketRegex.test(prTitle)) {
+        core.info(`Title already contains a JIRA ticket`)
+      } else {
+        core.info(`Updating pull request title to ${jiraTicket}: ${prTitle}`)
+        request.title = `${jiraTicket}: ${prTitle}`
+      }
     } else {
       const isException = new RegExp(exceptionRegex, exceptionRegexFlags).test(headBranch)
 
       if (!isException) {
         const regexStr = ticketRegex.toString()
-        core.setFailed(`Neither current branch nor title start with a Jira ticket ${regexStr}.`)
+        if (failIfNoTicket === 'true') {
+          core.setFailed(
+            `Neither current branch nor title contain a Jira ticket matching ${regexStr}.`
+          )
+        }
       }
     }
     if (prPreviewLine || ticketLine) {
@@ -87,7 +106,7 @@ async function run(): Promise<void> {
       const updatedBody = prBody.replace(
         new RegExp(
           `^(\\*\\*\\[${PREVIEW_LINK_TEXT}\\][^\\n]+\\n)?` +
-            `(\\*\\*\\[${JIRA_LINK_TEXT}\\][^\\n]+\\n)?\\n?`
+            `(\\*\\*\\[${jiraTicket}\\][^\\n]+\\n)?\\n?`
         ),
         match => {
           const replacement = `${prPreviewLine}${ticketLine}\n`
